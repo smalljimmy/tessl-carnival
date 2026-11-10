@@ -97,7 +97,7 @@ export function pointerDown(state: RingTossState, x: number, y: number): RingTos
 
 /** Where a ring is drawn: along a line to its aim, lifted by an arc while in the air. */
 export function ringPosition(ring: Ring): { x: number; y: number } {
-  const t = Math.min(ring.age / FLIGHT_TIME, 1);
+  const t = ring.settled ? 1 : Math.min(ring.age / FLIGHT_TIME, 1);
   return {
     x: ring.fromX + (ring.toX - ring.fromX) * t,
     y: ring.fromY + (ring.toY - ring.fromY) * t - Math.sin(Math.PI * t) * ARC_HEIGHT,

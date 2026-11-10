@@ -8,6 +8,7 @@ import ringTossDefault, {
   createState,
   pegAt,
   pointerDown,
+  ringPosition,
   ringToss,
   settle,
   step,
@@ -82,6 +83,13 @@ describe('ring toss', () => {
     step(state, 1);
     settle(state, state.rings[0]);
     expect(state.score).toBe(POINTS_PER_RINGER);
+  });
+
+  it('draws a settled ring at its landing point, even if settled early', () => {
+    const state = createState();
+    toss(state, peg.x, peg.y);
+    settle(state, state.rings[0]);
+    expect(ringPosition(state.rings[0])).toEqual({ x: peg.x, y: peg.y });
   });
 
   it('ends the round only after all five rings settle', () => {
