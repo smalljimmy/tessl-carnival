@@ -55,6 +55,7 @@ workshop/
 docs/midway.jpg           the screenshot at the top of the README
 docs/social-preview.jpg   the 1280x640 image for link previews and GitHub's social preview
 docs/jit-board-queue.md   the design for the workshop's advanced stretch
+docs/tessl-evaluation-context.md  how the code works: entry points, games, scores, theme
 tessl-factory/skills/     sample skills for maintenance loops
 src/
   main.ts                 the router (#/play/<game-id>) and the midway's overlay
@@ -135,6 +136,9 @@ You often work on an issue with nobody around to answer questions.
 ## Skills
 
 - `skills/add-carnival-game/SKILL.md`: how to add a new game to the midway.
+- `skills/verify-carnival-change/SKILL.md`: how to check a bug fix or a new
+  game before handing it off, with a Passed, Failed or Unverified report.
+  It builds on `docs/tessl-evaluation-context.md`.
 - `skills/set-up-your-fork/SKILL.md`: turn on Issues, Actions and GitHub Pages
   in a fork, lock it down, and deploy the carnival.
 - `skills/check-workshop-ready/SKILL.md`: check a laptop and fork are ready for
