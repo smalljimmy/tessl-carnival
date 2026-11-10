@@ -89,5 +89,9 @@ and `canvasFont` only.
   for Codespaces.
 - CI (`.github/workflows/ci.yml`) runs `npm ci`, `npm run check` and
   `npm run build` on every pull request and every push to `main`.
-- There are no browser tests, and none can be added: the cloud machine can't
-  install the system packages they need.
+- There are no browser tests. That is the repository's test and dependency
+  policy, not a proven limit of the cloud platform: game logic is tested with
+  Vitest, no browser-test dependencies are added, and `npm ci` stays the whole
+  setup. The setup hook only runs `npm ci`, so it says nothing about whether
+  the platform could install browser tooling. Browser flows are checked by hand
+  and reported as Passed, Failed or Unverified.

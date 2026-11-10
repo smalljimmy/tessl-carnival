@@ -10,7 +10,10 @@ for how the code works and [`AGENTS.md`](../../AGENTS.md) for the house rules.
 This skill only adds how to check a change and how to report it.
 
 Don't add browser-test dependencies, such as Playwright, Puppeteer or jsdom.
-The cloud machine can't install what they need, and `npm ci` has to stay quick.
+That is the repository's test and dependency policy: game logic is tested with
+Vitest, and `npm ci` stays the whole setup. It is not a claim that the cloud
+platform can't install browser tooling. Browser flows are checked by hand, as
+in step 5.
 
 ## 1. Read the acceptance criteria
 
