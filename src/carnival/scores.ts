@@ -18,13 +18,29 @@ function memoryStorage(): ScoreStorage {
   };
 }
 
+function isNonNegativeNumber(value: unknown): value is number {
+  return typeof value === 'number' && Number.isFinite(value) && value >= 0;
+}
+
+/** Saved scores come from storage anyone can edit, so check each entry. */
+function isScoreEntry(value: unknown): value is ScoreEntry {
+  if (typeof value !== 'object' || value === null) return false;
+  const entry = value as Record<string, unknown>;
+  return (
+    typeof entry.gameId === 'string' &&
+    entry.gameId !== '' &&
+    isNonNegativeNumber(entry.score) &&
+    isNonNegativeNumber(entry.at)
+  );
+}
+
 export function createScoreBoard(storage: ScoreStorage, now: () => number = Date.now) {
   let store = storage;
 
   function load(): ScoreEntry[] {
     try {
       const parsed: unknown = JSON.parse(store.getItem(STORAGE_KEY) ?? '[]');
-      return Array.isArray(parsed) ? (parsed as ScoreEntry[]) : [];
+      return Array.isArray(parsed) ? parsed.filter(isScoreEntry) : [];
     } catch {
       return [];
     }
