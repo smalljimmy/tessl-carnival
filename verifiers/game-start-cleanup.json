@@ -1,0 +1,18 @@
+{
+  "name": "Game start releases its resources",
+  "instruction": "The cleanup function returned by a game start method releases the animation and event listeners created for that game instance.",
+  "relevant_when": "The file defines a CarnivalGame object with a visible start method that creates an animation loop or event listeners for the game instance, including resources created later by callbacks installed by start or by helpers defined in this file.",
+  "context": "AGENTS.md, House rule 5: start returns a function that cancels the animation frame and removes every listener it added. The router calls that cleanup when the player leaves a booth; leaked callbacks keep old games running or handling input.",
+  "scope": "file",
+  "scope_reason": "Each game.ts owns its start method, callbacks and returned cleanup, so the resource lifecycle is visible in one file.",
+  "checklist": [
+    {
+      "name": "animation-stops",
+      "rule": "If this game instance creates a requestAnimationFrame loop, its returned cleanup cancels the latest scheduled frame or prevents further callbacks and rescheduling through an explicit disposed guard. Include loops created later by callbacks installed by start, not only loops created before start returns. Accept equivalent disposal through helpers visible in this file. Do not require animation cleanup when the instance creates no animation loop. If disposal is delegated to an external helper whose implementation is not visible, do not infer a leak from that missing evidence."
+    },
+    {
+      "name": "listeners-released",
+      "rule": "Every listener registered for this game instance over its lifetime is released by the cleanup returned from start. Include registrations made later by input or animation callbacks installed by start, not only registrations made before start returns. Cleanup removes the same target/event/callback/capture registration, aborts its registration signal, or invokes an equivalent disposer visible in this file; callbacks that can run after cleanup must be prevented from installing new listeners. Do not require listener cleanup when the instance adds none. Do not flag an external helper solely because its implementation is unavailable."
+    }
+  ]
+}
