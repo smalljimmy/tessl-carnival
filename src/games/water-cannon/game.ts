@@ -250,6 +250,7 @@ export const waterCannon: CarnivalGame = {
     };
     frame = requestAnimationFrame(loop);
 
+    // Release this instance when the player returns to the midway.
     return () => {
       cancelAnimationFrame(frame);
       canvas.removeEventListener('pointermove', onMove);
