@@ -25,7 +25,6 @@ import {
   type GroundLayer,
 } from './render';
 import {
-  boothInReach,
   createVisitors,
   createWalker,
   findPath,
@@ -33,12 +32,15 @@ import {
   inputDirection,
   layoutMidway,
   pathToBooth,
+  playableInReach,
+  playables,
   strollTiles,
   toScreen,
   toTile,
   updateVisitor,
   walk,
   type BoothSlot,
+  type Playable,
   type Point,
   type Prop,
 } from './world';
@@ -47,12 +49,12 @@ export interface MidwayOptions {
   games: readonly { id: string; name: string }[];
   /** Called when the player asks to play the booth they're standing at. */
   onPlay(gameId: string): void;
-  /** Called whenever the booth in reach changes. */
-  onReach(booth: BoothSlot | undefined): void;
+  /** Called whenever the booth (or game cart) in reach changes. */
+  onReach(booth: Playable | undefined): void;
 }
 
 export interface MidwayControls {
-  /** Walks the player to a game's booth. */
+  /** Walks the player to a game's booth or cart. */
   walkTo(gameId: string): void;
   stop(): void;
 }
@@ -71,6 +73,8 @@ const PLAY_KEYS = new Set(['KeyE', 'Enter', 'Space']);
 const DEVCON_URL =
   'https://tessl.io/devcon?utm_source=carnival&utm_medium=midway-billboard&utm_campaign=tessl-carnival';
 const MIN_QUALITY = 0.5;
+/** How far above a game cart's footprint its prompt sits, clear of its sign. */
+const CART_PROMPT_HEIGHT = 76;
 
 /** Where the player stood when they last left the midway, for this page load. */
 let returnTo: Point | undefined;
@@ -94,7 +98,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       depth: prop.x + prop.y + (prop.w + prop.h) / 2,
       box: propBounds(prop),
       prop,
-      name: '',
+      name: prop.gameId ? (names.get(prop.gameId) ?? prop.gameId) : '',
     })),
   ];
   const strolls = strollTiles(map);
@@ -108,7 +112,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
   const floaters: Floater[] = [];
   const calm = window.matchMedia('(prefers-reduced-motion: reduce)').matches;
   let nextFloater = 2;
-  let inReach: BoothSlot | undefined;
+  let inReach: Playable | undefined;
   let destination: Point | undefined;
 
   let dpr = 1;
@@ -140,7 +144,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
   observer.observe(canvas);
   resize();
 
-  const play = (booth: BoothSlot | undefined) => {
+  const play = (booth: Playable | undefined) => {
     if (!booth?.gameId) return;
     returnTo = { x: player.x, y: player.y };
     options.onPlay(booth.gameId);
@@ -171,10 +175,12 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       y: (event.clientY - box.top) / zoom + camera.y,
     };
   };
+  const isBooth = (spot: Playable): spot is BoothSlot => !('kind' in spot);
+  const boundsOf = (spot: Playable) => (isBooth(spot) ? boothBounds(spot) : propBounds(spot));
   const boothAt = (point: Point) =>
-    map.booths
-      .filter((booth) => {
-        const b = boothBounds(booth);
+    playables(map)
+      .filter((spot) => {
+        const b = boundsOf(spot);
         return point.x >= b.left && point.x <= b.right && point.y >= b.top && point.y <= b.bottom;
       })
       .sort((a, b) => b.x + b.y - (a.x + a.y))[0];
@@ -186,7 +192,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       return point.x >= b.left && point.x <= b.right && point.y >= b.top && point.y <= b.bottom;
     });
 
-  const walkToBooth = (booth: BoothSlot) => {
+  const walkToBooth = (booth: Playable) => {
     player.path = pathToBooth(map, player, booth) ?? [];
     destination = player.path.at(-1);
   };
@@ -365,7 +371,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
       const { depth, box, booth, prop, name } = item;
       const paint = booth
         ? () => drawBooth(ctx, booth, name, t, booth === inReach)
-        : () => drawProp(ctx, prop!, t);
+        : () => drawProp(ctx, prop!, t, prop === inReach, name);
       drawables.push({ depth, box, draw: () => faded(box, depth, paint) });
     }
     drawables
@@ -378,15 +384,16 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
     drawBunting(ctx, map, t, visible);
     drawFloaters(ctx, floaters);
 
-    // The prompt over the booth in reach, at full resolution.
+    // The prompt over the booth or game cart in reach, at full resolution.
     if (inReach?.gameId) {
       ctx.setTransform(dpr, 0, 0, dpr, 0, 0);
-      const c = toScreen(inReach.x + 1, inReach.y + 1);
+      const booth = isBooth(inReach);
+      const c = toScreen(inReach.x + inReach.w / 2, inReach.y + inReach.h / 2);
       label(
         ctx,
-        'Press E to play',
+        booth ? 'Press E to play' : `${names.get(inReach.gameId) ?? inReach.gameId}: press E`,
         (c.x - cam.x) * zoom,
-        (c.y - BOOTH_SIGN_HEIGHT - 46 - cam.y) * zoom,
+        (c.y - (booth ? BOOTH_SIGN_HEIGHT + 46 : CART_PROMPT_HEIGHT) - cam.y) * zoom,
       );
     }
   };
@@ -422,7 +429,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
 
     for (const visitor of visitors) updateVisitor(map, visitor, dt, Math.random, strolls);
 
-    const reach = boothInReach(map, player);
+    const reach = playableInReach(map, player);
     if (reach !== inReach) {
       inReach = reach;
       options.onReach(reach);
@@ -437,7 +444,7 @@ export function startMidway(canvas: HTMLCanvasElement, options: MidwayOptions): 
 
   return {
     walkTo(gameId) {
-      const booth = map.booths.find((b) => b.gameId === gameId);
+      const booth = playables(map).find((b) => b.gameId === gameId);
       if (booth) walkToBooth(booth);
     },
     stop() {

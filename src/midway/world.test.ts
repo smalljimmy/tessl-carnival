@@ -1,6 +1,7 @@
 import { describe, expect, it } from 'vitest';
 import {
   boothInReach,
+  CART_KINDS,
   canStand,
   createVisitors,
   createWalker,
@@ -10,6 +11,7 @@ import {
   isBlocked,
   layoutMidway,
   pathToBooth,
+  playableInReach,
   seededRandom,
   toScreen,
   toTile,
@@ -164,6 +166,59 @@ describe('boothInReach', () => {
     const booth = map.booths[0];
     expect(boothInReach(map, { x: booth.x + 1, y: booth.y + booth.h + 0.5 })).toBe(booth);
     expect(boothInReach(map, map.spawn)).toBeUndefined();
+  });
+});
+
+describe('the ice cream cart', () => {
+  const ids = ['ice-cream-bar', 'water-cannon'];
+  const iceCream = CART_KINDS.indexOf('Ice cream');
+
+  it('runs the Ice Cream Bar instead of giving it a booth', () => {
+    const map = layoutMidway(ids);
+    expect(map.booths.map((b) => b.gameId)).toEqual([
+      'water-cannon',
+      undefined,
+      undefined,
+      undefined,
+    ]);
+    const carts = map.props.filter((p) => p.gameId);
+    expect(carts).toHaveLength(1);
+    expect(carts[0]).toMatchObject({ kind: 'cart', variant: iceCream, gameId: 'ice-cream-bar' });
+  });
+
+  it('keeps every other cart decorative, even on a long midway', () => {
+    const map = layoutMidway([...ids, ...Array.from({ length: 9 }, (_, i) => `game-${i}`)]);
+    expect(
+      map.props.filter((p) => p.kind === 'cart' && p.variant === iceCream).length,
+    ).toBeGreaterThan(1);
+    expect(map.props.filter((p) => p.gameId)).toHaveLength(1);
+  });
+
+  it('stays decorative without the Ice Cream Bar game', () => {
+    const map = layoutMidway(['water-cannon']);
+    expect(map.props.some((p) => p.gameId)).toBe(false);
+  });
+
+  it('can be walked to from the gate and played from beside it', () => {
+    const map = layoutMidway(ids);
+    const cart = map.props.find((p) => p.gameId)!;
+    expect(isBlocked(map, cart.x, cart.y)).toBe(true);
+    const path = pathToBooth(map, map.spawn, cart);
+    expect(path).toBeDefined();
+    const end = path!.at(-1)!;
+    expect(canStand(map, end.x, end.y)).toBe(true);
+    expect(playableInReach(map, end)).toBe(cart);
+  });
+
+  it('leaves booths playable and the open midway out of reach', () => {
+    const map = layoutMidway(ids);
+    for (const booth of map.booths) {
+      const end = pathToBooth(map, map.spawn, booth)!.at(-1)!;
+      expect(playableInReach(map, end)).toBe(booth);
+    }
+    expect(playableInReach(map, map.spawn)).toBeUndefined();
+    const popcorn = map.props.find((p) => p.kind === 'cart' && p.variant === 0)!;
+    expect(playableInReach(map, { x: popcorn.x + 0.5, y: popcorn.y + 1.5 })).toBeUndefined();
   });
 });
 

@@ -884,7 +884,7 @@ function person(
   }
 }
 
-function cart(ctx: Ctx, prop: Prop, t: number) {
+function cart(ctx: Ctx, prop: Prop, t: number, glow: boolean, name: string) {
   const kind = prop.variant % CART_KINDS.length;
   const x = prop.x + 0.18;
   const y = prop.y + 0.3;
@@ -994,14 +994,19 @@ function cart(ctx: Ctx, prop: Prop, t: number) {
     );
   }
 
-  // A little sign above it all.
+  // A little sign above it all. A cart that runs a game is named after it.
   const sign = at(prop.x + 0.5, prop.y + 0.5, kind === 2 ? 50 : 42);
+  const playable = prop.gameId !== undefined && name !== '';
+  const title = playable ? name : CART_KINDS[kind];
   onPlane(ctx, sign, () =>
-    signBoard(ctx, CART_KINDS[kind].toUpperCase(), 30, 9, {
-      board: palette.board,
-      edge: palette.woodDark,
-      text: palette.ink,
-    }),
+    signBoard(
+      ctx,
+      title.toUpperCase(),
+      playable ? 44 : 30,
+      playable ? 11 : 9,
+      { board: palette.board, edge: palette.woodDark, text: palette.ink },
+      glow,
+    ),
   );
 }
 
@@ -1734,7 +1739,11 @@ export function drawFloaters(ctx: Ctx, floaters: readonly Floater[]) {
 
 // ── Everything else ───────────────────────────────────────────────────────
 
-export function drawProp(ctx: Ctx, prop: Prop, t: number) {
+/**
+ * Draws a prop. A cart that runs a game shows the game's `name` on its sign, and
+ * `glow` lights the sign while the player can reach it.
+ */
+export function drawProp(ctx: Ctx, prop: Prop, t: number, glow = false, name = '') {
   switch (prop.kind) {
     case 'big-top':
       return bigTop(ctx, prop, t);
@@ -1761,7 +1770,7 @@ export function drawProp(ctx: Ctx, prop: Prop, t: number) {
     case 'wagon':
       return wagon(ctx, prop);
     case 'cart':
-      return cart(ctx, prop, t);
+      return cart(ctx, prop, t, glow, name);
     case 'ticket-booth':
       return ticketBooth(ctx, prop);
     case 'bench':

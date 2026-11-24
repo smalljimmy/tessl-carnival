@@ -54,7 +54,12 @@ export interface Prop extends Rect {
   kind: PropKind;
   /** Picks a colour scheme, or which kind of cart. */
   variant: number;
+  /** The game this prop runs, for a cart the player can walk up to and play. */
+  gameId?: string;
 }
+
+/** Something the player can walk up to and play: a booth, or a cart that runs a game. */
+export type Playable = BoothSlot | Prop;
 
 export interface MidwayMap {
   width: number;
@@ -73,6 +78,14 @@ export interface MidwayMap {
 }
 
 export const CART_KINDS = ['Popcorn', 'Cotton candy', 'Ice cream', 'Drinks'] as const;
+
+/**
+ * Games that run at a cart rather than a booth, by the kind of cart. The first
+ * cart of that kind runs the game, and the game gets no booth of its own.
+ */
+export const CART_GAMES: Partial<Record<(typeof CART_KINDS)[number], string>> = {
+  'Ice cream': 'ice-cream-bar',
+};
 
 const MAP_WIDTH = 24;
 const AVENUE_X = 11;
@@ -96,10 +109,13 @@ export function seededRandom(seed: number): () => number {
  * Lays out the midway for a list of games. Booths line both sides of the
  * avenue, two per row starting by the gate, and the avenue grows as games are
  * added. Slots without a game become "coming soon" booths. Tents, rides and
- * carts fill the space around them.
+ * carts fill the space around them. A game in `CART_GAMES` runs at its cart
+ * instead of a booth.
  */
 export function layoutMidway(gameIds: readonly string[]): MidwayMap {
-  const rows = Math.max(MIN_ROWS, Math.ceil(gameIds.length / 2));
+  const cartGames = new Set<string>(Object.values(CART_GAMES));
+  const boothIds = gameIds.filter((id) => !cartGames.has(id));
+  const rows = Math.max(MIN_ROWS, Math.ceil(boothIds.length / 2));
   const avenueEnd = FIRST_ROW_Y + rows * ROW_SPACING;
   const entrance = avenueEnd + 2;
   const width = MAP_WIDTH;
@@ -133,7 +149,13 @@ export function layoutMidway(gameIds: readonly string[]): MidwayMap {
 
   const props: Prop[] = [];
   const add = (kind: PropKind, x: number, y: number, w = 1, h = 1, variant = 0) => {
-    props.push({ kind, x, y, w, h, variant });
+    const prop: Prop = { kind, x, y, w, h, variant };
+    const cartGame =
+      kind === 'cart' ? CART_GAMES[CART_KINDS[variant % CART_KINDS.length]] : undefined;
+    if (cartGame && gameIds.includes(cartGame) && !props.some((p) => p.gameId === cartGame)) {
+      prop.gameId = cartGame;
+    }
+    props.push(prop);
     block({ x, y, w, h });
   };
 
@@ -157,7 +179,7 @@ export function layoutMidway(gameIds: readonly string[]): MidwayMap {
       y: avenueEnd - (row + 1) * ROW_SPACING,
       w: 2,
       h: 2,
-      gameId: gameIds[index],
+      gameId: boothIds[index],
     };
     booths.push(booth);
     block(booth);
@@ -445,8 +467,31 @@ export function boothInReach(
   return nearest;
 }
 
-/** A walk to the open tile beside a booth that is closest to `from`. */
-export function pathToBooth(map: MidwayMap, from: Point, booth: BoothSlot): Point[] | undefined {
+/** Every booth and every cart that runs a game. */
+export function playables(map: MidwayMap): Playable[] {
+  return [...map.booths, ...map.props.filter((prop) => prop.gameId)];
+}
+
+/** The booth or game cart the walker is close enough to use, if any. */
+export function playableInReach(
+  map: MidwayMap,
+  point: Point,
+  reach = BOOTH_REACH,
+): Playable | undefined {
+  let nearest: Playable | undefined;
+  let nearestDistance = reach;
+  for (const spot of playables(map)) {
+    const distance = distanceToRect(point, spot);
+    if (distance <= nearestDistance) {
+      nearest = spot;
+      nearestDistance = distance;
+    }
+  }
+  return nearest;
+}
+
+/** A walk to the open tile beside a booth (or a game cart) that is closest to `from`. */
+export function pathToBooth(map: MidwayMap, from: Point, booth: Rect): Point[] | undefined {
   let best: Point[] | undefined;
   let bestLength = Infinity;
   for (let y = booth.y - 1; y <= booth.y + booth.h; y++) {
