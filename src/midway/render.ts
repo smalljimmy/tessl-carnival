@@ -995,19 +995,43 @@ function cart(ctx: Ctx, prop: Prop, t: number, glow: boolean, name: string) {
   }
 
   // A little sign above it all. A cart that runs a game is named after it.
-  const sign = at(prop.x + 0.5, prop.y + 0.5, kind === 2 ? 50 : 42);
   const playable = prop.gameId !== undefined && name !== '';
   const title = playable ? name : CART_KINDS[kind];
-  onPlane(ctx, sign, () =>
+  const sign = cartSign(prop, playable);
+  onPlane(ctx, sign.centre, () =>
     signBoard(
       ctx,
       title.toUpperCase(),
-      playable ? 44 : 30,
-      playable ? 11 : 9,
+      sign.width,
+      sign.height,
       { board: palette.board, edge: palette.woodDark, text: palette.ink },
       glow,
     ),
   );
+}
+
+/** Where a cart's sign is centred, and its size in plane-local pixels. A game cart's sign is wider. */
+function cartSign(prop: Prop, playable: boolean) {
+  const kind = prop.variant % CART_KINDS.length;
+  return {
+    centre: at(prop.x + 0.5, prop.y + 0.5, kind === 2 ? 50 : 42),
+    width: playable ? 44 : 30,
+    height: playable ? 11 : 9,
+  };
+}
+
+/** The screen box a game cart's sign is drawn in, border included. */
+function cartSignBounds(prop: Prop): Box {
+  const { centre, width, height } = cartSign(prop, true);
+  // signBoard's border adds 2 pixels on each side, then onPlane skews it.
+  const halfWidth = width / 2 + 2;
+  const halfHeight = height / 2 + 2;
+  return {
+    left: centre[0] - 0.894 * halfWidth,
+    right: centre[0] + 0.894 * halfWidth,
+    top: centre[1] - 0.447 * halfWidth - halfHeight,
+    bottom: centre[1] + 0.447 * halfWidth + halfHeight,
+  };
 }
 
 function ticketBooth(ctx: Ctx, prop: Prop) {
@@ -1585,11 +1609,20 @@ export function propBounds(prop: Prop): Box {
   const c = toScreen(prop.x + prop.w / 2, prop.y + prop.h / 2);
   const half = ((prop.w + prop.h) * 16) / 2;
   const footprint = ((prop.w + prop.h) * 8) / 2;
-  return {
+  const bounds = {
     left: c.x - half,
     right: c.x + half,
     top: c.y - footprint - PROP_HEIGHTS[prop.kind],
     bottom: c.y + footprint,
+  };
+  if (prop.kind !== 'cart' || prop.gameId === undefined) return bounds;
+  // A game cart's wider sign sticks out past the cart, and is part of what you can click.
+  const sign = cartSignBounds(prop);
+  return {
+    left: Math.min(bounds.left, sign.left),
+    right: Math.max(bounds.right, sign.right),
+    top: Math.min(bounds.top, sign.top),
+    bottom: Math.max(bounds.bottom, sign.bottom),
   };
 }
 
