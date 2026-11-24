@@ -2,7 +2,7 @@ import './style.css';
 import { applyTheme, bestScore, type CarnivalGame } from './carnival';
 import { registry } from './games';
 import { startMidway } from './midway/midway';
-import type { BoothSlot } from './midway/world';
+import type { Playable } from './midway/world';
 import { carnivalLink, REPO_URL, shareLinks } from './share';
 
 applyTheme();
@@ -19,7 +19,7 @@ function renderMidway() {
   document.body.dataset.view = 'midway';
   app.innerHTML = `
     <section class="midway">
-      <canvas class="midway-map" aria-label="The carnival midway. Walk up to a booth to play its game."></canvas>
+      <canvas class="midway-map" aria-label="The carnival midway. Walk up to a booth, or the ice cream cart, to play its game."></canvas>
       <p class="midway-help">
         <kbd>WASD</kbd> or <kbd>arrows</kbd> to walk, or click where you want to go.
         <kbd>E</kbd> to play.
@@ -69,7 +69,7 @@ function renderMidway() {
   }
 
   const card = app.querySelector<HTMLElement>('.booth-card')!;
-  const showBooth = (booth: BoothSlot | undefined) => {
+  const showBooth = (booth: Playable | undefined) => {
     const game = booth?.gameId ? registry.get(booth.gameId) : undefined;
     card.hidden = booth === undefined;
     card.classList.toggle('closed', booth !== undefined && !game);
